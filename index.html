@@ -44,7 +44,6 @@
       margin-bottom: 20px;
     }
 
-    /* パンダキャラクターエリア */
     .coach {
       position: relative;
       background: #fff8f8;
@@ -144,7 +143,6 @@
       min-height: 1.2em;
     }
 
-    /* ピンイン表示エリア & 点滅アニメーション */
     .pinyin-box {
       font-family: monospace;
       font-size: 24px;
@@ -197,7 +195,6 @@
       min-height: 24px;
     }
 
-    /* キーボードガイド */
     .kbd {
       padding: 12px;
       background: #ffffff;
@@ -258,7 +255,6 @@
       <div id="chineseDisplay" class="chinese-title">「スタート」を押して開始</div>
       <div id="meaningDisplay" class="meaning-subtitle"></div>
 
-      <!-- ピンインガイド文字表示 -->
       <div id="pinyinBox" class="pinyin-box"></div>
 
       <input id="answer" type="text" autocomplete="off" placeholder="ここに入力（英字小文字）" disabled>
@@ -286,7 +282,6 @@
 
   const $ = id => document.getElementById(id);
 
-  // キーボードレイアウト
   const ROWS = [
     ["Q","W","E","R","T","Y","U","I","O","P"],
     ["A","S","D","F","G","H","J","K","L"],
@@ -319,12 +314,21 @@
   }
   buildKbd();
 
-  // CSVパース
+  // 文字列整形関数（クォーテーション " や余分な空白を除去）
+  function cleanText(str) {
+    if (!str) return "";
+    return str.replace(/^"+|"+$/g, '').replace(/"/g, '').trim();
+  }
+
+  // CSVパース（クォーテーションの完全除去対応）
   function parseCSV(text) {
     const lines = text.split('\n');
     return lines.map(line => {
-      if (!line.includes('"')) return line.split(',').map(s => s.trim());
-      return line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => s.replace(/^"\vert{}"$/g, '').trim());
+      const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+      if (!line.includes('"')) {
+        return line.split(',').map(s => cleanText(s));
+      }
+      return line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => cleanText(s));
     });
   }
 
@@ -334,14 +338,13 @@
     .then(csv => {
       const rows = parseCSV(csv).slice(1);
       wordList = rows.map(r => ({
-        chinese: r[0] || "",
-        pinyin: (r[1] || "").toLowerCase().trim(),
-        meaning: r[2] || ""
+        chinese: cleanText(r[0]),
+        pinyin: cleanText(r[1]).toLowerCase(),
+        meaning: cleanText(r[2])
       })).filter(item => item.chinese && item.pinyin);
     })
     .catch(() => {});
 
-  // リアルタイム表示・ガイド更新
   function updateGuide() {
     document.querySelectorAll(".key").forEach(x => x.classList.remove("nextkey"));
     if (!isGaming || !currentWord) {
@@ -372,7 +375,6 @@
 
     $("pinyinBox").innerHTML = formattedHtml;
 
-    // 間違いがある場合
     if (firstMismatchIndex !== -1 || typed.length > target.length) {
       $("answer").className = "bad";
       $("guide").textContent = "打ち間違いがあります。Backspaceで戻してください。";
@@ -381,117 +383,8 @@
 
     $("answer").className = "";
 
-    // 次に押すべきキー
     if (typed.length < target.length) {
       const nextChar = target[typed.length];
       const keyId = nextChar === " " ? "SPACE" : nextChar.toUpperCase();
       document.querySelector(`[data-key="${keyId}"]`)?.classList.add("nextkey");
-      $("guide").textContent = `次に打つキー: ${nextChar === " " ? "Space" : keyId}`;
-    } else {
-      $("guide").textContent = "";
-    }
-  }
-
-  // 中国語音声読み上げ
-  function speakChinese() {
-    if (!currentWord || !window.speechSynthesis) return;
-    const u = new SpeechSynthesisUtterance(currentWord.chinese);
-    u.lang = "zh-CN";
-    u.rate = 0.85;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
-  }
-
-  // リアクション演出
-  function react() {
-    const b = $("bubble");
-    const phrases = ["很好！", "太棒了！", "真厉害！", "正确！"];
-    b.textContent = phrases[Math.floor(Math.random() * phrases.length)];
-    b.classList.add("show");
-    setTimeout(() => b.classList.remove("show"), 1200);
-  }
-
-  // 出題
-  function nextQuestion() {
-    if (currentIndex >= TOTAL_QUESTIONS) return endGame();
-
-    isLocked = false;
-    currentIndex++;
-
-    const rand = Math.floor(Math.random() * wordList.length);
-    currentWord = wordList[rand];
-
-    $("chineseDisplay").textContent = currentWord.chinese;
-    $("meaningDisplay").textContent = currentWord.meaning;
-    $("count").textContent = `${currentIndex} / ${TOTAL_QUESTIONS}`;
-    $("answer").value = "";
-    $("answer").disabled = false;
-    $("answer").focus();
-
-    updateGuide();
-    speakChinese();
-  }
-
-  // 開始
-  function startGame() {
-    if (wordList.length === 0) return;
-    isGaming = true;
-    currentIndex = 0;
-    score = 0;
-    $("start").disabled = true;
-    nextQuestion();
-  }
-
-  // 終了
-  function endGame() {
-    isGaming = false;
-    $("chineseDisplay").textContent = "🎉 ゲーム終了！";
-    $("meaningDisplay").textContent = `正答数: ${score} / ${TOTAL_QUESTIONS}`;
-    $("pinyinBox").innerHTML = "";
-    $("count").textContent = "";
-    $("answer").disabled = true;
-    $("answer").value = "";
-    $("start").disabled = false;
-    $("start").textContent = "もう一度スタート [1]";
-    updateGuide();
-  }
-
-  // 入力チェック
-  function checkAnswer() {
-    if (!isGaming || !currentWord || isLocked) return;
-
-    const typed = $("answer").value.toLowerCase().trim();
-    const target = currentWord.pinyin.trim();
-
-    if (typed === target) {
-      isLocked = true;
-      score++;
-      $("answer").className = "ok";
-      react();
-      setTimeout(nextQuestion, 1200);
-    }
-  }
-
-  // イベントリスナー
-  $("start").onclick = startGame;
-  $("skip").onclick = () => isGaming && nextQuestion();
-  $("speak").onclick = speakChinese;
-
-  $("answer").oninput = () => {
-    updateGuide();
-    checkAnswer();
-  };
-
-  document.addEventListener("keydown", e => {
-    if (e.repeat) return;
-    const tag = (document.activeElement?.tagName || "").toLowerCase();
-    if (tag === "input" && e.key !== "3") return;
-
-    if (e.key === "1" && !isGaming) { e.preventDefault(); startGame(); }
-    else if (e.key === "2" && isGaming) { e.preventDefault(); nextQuestion(); }
-    else if (e.key === "3" && isGaming) { e.preventDefault(); speakChinese(); }
-  });
-</script>
-
-</body>
-</html>
+      $("guide").textContent = `次に打つキー: ${nextChar === "
