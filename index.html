@@ -387,4 +387,105 @@
       const nextChar = target[typed.length];
       const keyId = nextChar === " " ? "SPACE" : nextChar.toUpperCase();
       document.querySelector(`[data-key="${keyId}"]`)?.classList.add("nextkey");
-      $("guide").textContent = `次に打つキー: ${nextChar === "
+      $("guide").textContent = `次に打つキー: ${nextChar === " " ? "Space" : keyId}`;
+    } else {
+      $("guide").textContent = "";
+    }
+  }
+
+  function speakChinese() {
+    if (!currentWord || !window.speechSynthesis) return;
+    const u = new SpeechSynthesisUtterance(currentWord.chinese);
+    u.lang = "zh-CN";
+    u.rate = 0.85;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }
+
+  function react() {
+    const b = $("bubble");
+    const phrases = ["很好！", "太棒了！", "真厉害！", "正确！"];
+    b.textContent = phrases[Math.floor(Math.random() * phrases.length)];
+    b.classList.add("show");
+    setTimeout(() => b.classList.remove("show"), 1200);
+  }
+
+  function nextQuestion() {
+    if (currentIndex >= TOTAL_QUESTIONS) return endGame();
+
+    isLocked = false;
+    currentIndex++;
+
+    const rand = Math.floor(Math.random() * wordList.length);
+    currentWord = wordList[rand];
+
+    $("chineseDisplay").textContent = currentWord.chinese;
+    $("meaningDisplay").textContent = currentWord.meaning;
+    $("count").textContent = `${currentIndex} / ${TOTAL_QUESTIONS}`;
+    $("answer").value = "";
+    $("answer").disabled = false;
+    $("answer").focus();
+
+    updateGuide();
+    speakChinese();
+  }
+
+  function startGame() {
+    if (wordList.length === 0) return;
+    isGaming = true;
+    currentIndex = 0;
+    score = 0;
+    $("start").disabled = true;
+    nextQuestion();
+  }
+
+  function endGame() {
+    isGaming = false;
+    $("chineseDisplay").textContent = "🎉 ゲーム終了！";
+    $("meaningDisplay").textContent = `正答数: ${score} / ${TOTAL_QUESTIONS}`;
+    $("pinyinBox").innerHTML = "";
+    $("count").textContent = "";
+    $("answer").disabled = true;
+    $("answer").value = "";
+    $("start").disabled = false;
+    $("start").textContent = "もう一度スタート [1]";
+    updateGuide();
+  }
+
+  function checkAnswer() {
+    if (!isGaming || !currentWord || isLocked) return;
+
+    const typed = $("answer").value.toLowerCase().trim();
+    const target = currentWord.pinyin.trim();
+
+    if (typed === target) {
+      isLocked = true;
+      score++;
+      $("answer").className = "ok";
+      react();
+      setTimeout(nextQuestion, 1200);
+    }
+  }
+
+  $("start").onclick = startGame;
+  $("skip").onclick = () => isGaming && nextQuestion();
+  $("speak").onclick = speakChinese;
+
+  $("answer").oninput = () => {
+    updateGuide();
+    checkAnswer();
+  };
+
+  document.addEventListener("keydown", e => {
+    if (e.repeat) return;
+    const tag = (document.activeElement?.tagName || "").toLowerCase();
+    if (tag === "input" && e.key !== "3") return;
+
+    if (e.key === "1" && !isGaming) { e.preventDefault(); startGame(); }
+    else if (e.key === "2" && isGaming) { e.preventDefault(); nextQuestion(); }
+    else if (e.key === "3" && isGaming) { e.preventDefault(); speakChinese(); }
+  });
+</script>
+
+</body>
+</html>
