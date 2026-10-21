@@ -90,21 +90,21 @@
       font-weight: bold;
     }
 
+    .chinese-text {
+      font-size: 2.2rem;
+      font-weight: bold;
+      color: var(--primary-color);
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      min-height: 1.2em;
+    }
+
     .meaning-text {
       font-size: 1.1rem;
       font-weight: 600;
       color: #212529;
       margin-bottom: 16px;
       min-height: 1.5em;
-    }
-
-    .chinese-text {
-      font-size: 2rem;
-      font-weight: bold;
-      color: var(--primary-color);
-      letter-spacing: 2px;
-      margin-bottom: 12px;
-      min-height: 1.2em;
     }
 
     .pinyin-guide {
@@ -197,7 +197,7 @@
 
   <div class="character-area">
     <div style="font-size: 2.5rem;">🐼</div>
-    <div id="statusBadge" class="badge-status">「スタート」を押して開始</div>
+    <div id="statusBadge" class="badge-status">データを読み込み中...</div>
   </div>
 
   <div class="progress-container">
@@ -205,12 +205,15 @@
   </div>
 
   <div class="question-card">
-    <div class="info-label">【日本語の意味】</div>
-    <div id="meaningDisplay" class="meaning-text">ここに意味が表示されます</div>
-
+    <!-- 1. 中国語を上に変更 -->
     <div class="info-label">【中国語】</div>
     <div id="chineseDisplay" class="chinese-text">学而时习之</div>
 
+    <!-- 2. 日本語の意味を次に変更 -->
+    <div class="info-label">【日本語の意味】</div>
+    <div id="meaningDisplay" class="meaning-text">ここに意味が表示されます</div>
+
+    <!-- 3. ピンインガイド -->
     <div class="info-label">【ピンインガイド（入力用）】</div>
     <div id="pinyinDisplay" class="pinyin-guide">xue er shi xi zhi</div>
   </div>
@@ -266,15 +269,14 @@
     }
   }
 
-  // 簡易CSVパース関数
+  // CSVパース関数
   function parseCSV(text) {
     const lines = text.split('\n');
     return lines.map(line => {
-      const matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
       if (!line.includes('"')) {
-        return line.split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+        return line.split(',').map(s => s.trim());
       }
-      return line.split('","').map(s => s.replace(/"/g, '').trim());
+      return line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => s.replace(/^"\vert{}"$/g, '').trim());
     });
   }
 
@@ -314,7 +316,7 @@
     typingInput.value = "";
   }
 
-  // 判定処理（スペースや大文字・小文字・記号の違いを柔軟に判定）
+  // 判定処理
   function normalizeText(text) {
     return text.toLowerCase().replace(/[^a-z0-9]/g, '');
   }
@@ -326,7 +328,6 @@
     const inputVal = typingInput.value;
 
     if (normalizeText(inputVal) === normalizeText(currentTarget)) {
-      // 正解音や演出
       statusBadge.textContent = "太棒了！(素晴らしい！)";
       currentIndex++;
       setTimeout(() => {
