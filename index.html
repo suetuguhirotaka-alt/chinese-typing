@@ -387,7 +387,7 @@
   }
 
   function speakChinese() {
-    if (!currentWord || !windowspeechSynthesis) return;
+    if (!currentWord || !window.speechSynthesis) return;
     const u = new SpeechSynthesisUtterance(currentWord.chinese);
     u.lang = "zh-CN";
     u.rate = 0.85;
